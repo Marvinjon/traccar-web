@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Table, TableRow, TableCell, TableHead, TableBody,
+  Table, TableRow, TableSortLabel, TableCell, TableHead, TableBody,
 } from '@mui/material';
 import { formatTime } from '../common/util/formatter';
 import { useTranslation } from '../common/components/LocalizationProvider';
@@ -34,6 +34,30 @@ const StatisticsPage = () => {
   const [columns, setColumns] = usePersistedState('statisticsColumns', ['captureTime', 'activeUsers', 'activeDevices', 'messagesStored']);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedItems = React.useMemo(() => {
+    if (sortConfig.key) {
+      const sorted = [...items].sort((a, b) => {
+        const aValue = a[sortConfig.key] ?? a.attributes?.[sortConfig.key];
+        const bValue = b[sortConfig.key] ?? b.attributes?.[sortConfig.key];
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+      return sorted;
+    }
+    return items;
+  }, [items, sortConfig]);  
 
   const handleSubmit = useCatch(async ({ from, to }) => {
     setLoading(true);
@@ -60,11 +84,24 @@ const StatisticsPage = () => {
       <Table>
         <TableHead>
           <TableRow>
-            {columns.map((key) => (<TableCell key={key}>{t(columnsMap.get(key))}</TableCell>))}
+            {columns.map((key) => (
+              <TableCell
+                key={key}
+                sortDirection={sortConfig.key === key ? sortConfig.direction : false}
+              >
+                <TableSortLabel
+                  active={sortConfig.key === key}
+                  direction={sortConfig.key === key ? sortConfig.direction : 'asc'}
+                  onClick={() => handleSort(key)}
+                >
+                  {t(columnsMap.get(key))}
+                </TableSortLabel>
+              </TableCell>
+            ))}
           </TableRow>
         </TableHead>
         <TableBody>
-          {!loading ? items.map((item) => (
+          {!loading ? sortedItems.map((item) => (
             <TableRow key={item.id}>
               {columns.map((key) => (
                 <TableCell key={key}>

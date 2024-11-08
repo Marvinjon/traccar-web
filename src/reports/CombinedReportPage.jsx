@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import {
-  Table, TableBody, TableCell, TableHead, TableRow,
+  Table, TableBody, TableCell, TableHead, TableRow, TableSortLabel,
 } from '@mui/material';
 import ReportFilter from './components/ReportFilter';
 import { useTranslation } from '../common/components/LocalizationProvider';
@@ -29,6 +29,30 @@ const CombinedReportPage = () => {
   const [loading, setLoading] = useState(false);
 
   const itemsCoordinates = useMemo(() => items.flatMap((item) => item.route), [items]);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedItems = React.useMemo(() => {
+    if (sortConfig.key) {
+      const sorted = [...items].sort((a, b) => {
+        const aValue = a[sortConfig.key] ?? a.attributes?.[sortConfig.key];
+        const bValue = b[sortConfig.key] ?? b.attributes?.[sortConfig.key];
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+      return sorted;
+    }
+    return items;
+  }, [items, sortConfig]);  
 
   const createMarkers = () => items.flatMap((item) => item.events
     .map((event) => item.positions.find((p) => event.positionId === p.id))
@@ -84,12 +108,28 @@ const CombinedReportPage = () => {
             <TableHead>
               <TableRow>
                 <TableCell>{t('sharedDevice')}</TableCell>
-                <TableCell>{t('positionFixTime')}</TableCell>
-                <TableCell>{t('sharedType')}</TableCell>
+                <TableCell sortDirection={sortConfig.key === 'positionFixTime' ? sortConfig.direction : false}>
+                  <TableSortLabel
+                    active={sortConfig.key === 'positionFixTime'}
+                    direction={sortConfig.key === 'positionFixTime' ? sortConfig.direction : 'asc'}
+                    onClick={() => handleSort('positionFixTime')}
+                  >
+                    {t('positionFixTime')}
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sortDirection={sortConfig.key === 'sharedType' ? sortConfig.direction : false}>
+                  <TableSortLabel
+                    active={sortConfig.key === 'sharedType'}
+                    direction={sortConfig.key === 'sharedType' ? sortConfig.direction : 'asc'}
+                    onClick={() => handleSort('sharedType')}
+                  >
+                    {t('sharedType')}
+                  </TableSortLabel>
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {!loading ? items.flatMap((item) => item.events.map((event, index) => (
+              {!loading ? sortedItems.flatMap((item) => item.events.map((event, index) => (
                 <TableRow key={event.id}>
                   <TableCell>{index ? '' : devices[item.deviceId].name}</TableCell>
                   <TableCell>{formatTime(event.eventTime, 'seconds')}</TableCell>

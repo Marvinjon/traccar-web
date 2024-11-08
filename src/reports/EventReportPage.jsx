@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  FormControl, InputLabel, Select, MenuItem, Table, TableHead, TableRow, TableCell, TableBody, Link, IconButton,
+  FormControl, InputLabel, Select, MenuItem, Table, TableHead, TableRow, TableSortLabel, TableCell, TableBody, Link, IconButton,
 } from '@mui/material';
 import GpsFixedIcon from '@mui/icons-material/GpsFixed';
 import LocationSearchingIcon from '@mui/icons-material/LocationSearching';
@@ -52,6 +52,7 @@ const EventReportPage = () => {
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [position, setPosition] = useState(null);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
 
   useEffectAsync(async () => {
     if (selectedItem) {
@@ -78,6 +79,29 @@ const EventReportPage = () => {
       throw Error(await response.text());
     }
   }, []);
+
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedItems = React.useMemo(() => {
+    if (sortConfig.key) {
+      const sorted = [...items].sort((a, b) => {
+        const aValue = a[sortConfig.key] ?? a.attributes?.[sortConfig.key];
+        const bValue = b[sortConfig.key] ?? b.attributes?.[sortConfig.key];
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+      return sorted;
+    }
+    return items;
+  }, [items, sortConfig]);  
 
   const handleSubmit = useCatch(async ({ deviceId, from, to, type }) => {
     const query = new URLSearchParams({ deviceId, from, to });
@@ -199,11 +223,24 @@ const EventReportPage = () => {
             <TableHead>
               <TableRow>
                 <TableCell className={classes.columnAction} />
-                {columns.map((key) => (<TableCell key={key}>{t(columnsMap.get(key))}</TableCell>))}
+                {columns.map((key) => (
+                  <TableCell
+                    key={key}
+                    sortDirection={sortConfig.key === key ? sortConfig.direction : false}
+                  >
+                    <TableSortLabel
+                      active={sortConfig.key === key}
+                      direction={sortConfig.key === key ? sortConfig.direction : 'asc'}
+                      onClick={() => handleSort(key)}
+                    >
+                      {t(columnsMap.get(key))}
+                    </TableSortLabel>
+                  </TableCell>
+                ))}
               </TableRow>
             </TableHead>
             <TableBody>
-              {!loading ? items.map((item) => (
+              {!loading ? sortedItems.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell className={classes.columnAction} padding="none">
                     {(item.positionId && (selectedItem === item ? (

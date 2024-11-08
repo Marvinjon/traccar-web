@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import {
-  FormControl, InputLabel, Select, MenuItem, Table, TableHead, TableRow, TableBody, TableCell,
+  FormControl, InputLabel, Select, MenuItem, Table, TableHead, TableRow, TableSortLabel, TableBody, TableCell,
 } from '@mui/material';
 import {
   formatDistance, formatSpeed, formatVolume, formatTime, formatNumericHours,
@@ -48,6 +48,30 @@ const SummaryReportPage = () => {
   const [daily, setDaily] = useState(false);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedItems = React.useMemo(() => {
+    if (sortConfig.key) {
+      const sorted = [...items].sort((a, b) => {
+        const aValue = a[sortConfig.key] ?? a.attributes?.[sortConfig.key];
+        const bValue = b[sortConfig.key] ?? b.attributes?.[sortConfig.key];
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+      return sorted;
+    }
+    return items;
+  }, [items, sortConfig]);  
 
   const handleSubmit = useCatch(async ({ deviceIds, groupIds, from, to, type }) => {
     const query = new URLSearchParams({ from, to, daily });
@@ -133,12 +157,25 @@ const SummaryReportPage = () => {
         <TableHead>
           <TableRow>
             <TableCell>{t('sharedDevice')}</TableCell>
-            {columns.map((key) => (<TableCell key={key}>{t(columnsMap.get(key))}</TableCell>))}
+            {columns.map((key) => (
+              <TableCell
+                key={key}
+                sortDirection={sortConfig.key === key ? sortConfig.direction : false}
+              >
+                <TableSortLabel
+                  active={sortConfig.key === key}
+                  direction={sortConfig.key === key ? sortConfig.direction : 'asc'}
+                  onClick={() => handleSort(key)}
+                >
+                  {t(columnsMap.get(key))}
+                </TableSortLabel>
+              </TableCell>
+            ))}
           </TableRow>
         </TableHead>
         <TableBody>
-          {!loading ? items.map((item) => (
-            <TableRow key={(`${item.deviceId}_${Date.parse(item.startTime)}`)}>
+          {!loading ? sortedItems.map((item) => (
+            <TableRow key={`${item.deviceId}_${Date.parse(item.startTime)}`}>
               <TableCell>{devices[item.deviceId].name}</TableCell>
               {columns.map((key) => (
                 <TableCell key={key}>
